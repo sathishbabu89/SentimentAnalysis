@@ -1,0 +1,1 @@
+pip install transformers torch streamlit plotly pandas numpy python-dotenv gradio huggingface_hub
