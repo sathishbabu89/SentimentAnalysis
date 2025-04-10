@@ -4,6 +4,9 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 from data_simulator import DataSimulator
+from london_map import create_london_sentiment_map
+from uk_map import create_uk_sentiment_map
+from streamlit_folium import folium_static
 import numpy as np
 
 # Initialize simulator
@@ -70,6 +73,12 @@ def main():
         .resolved-issue {
             border-left: 5px solid #2ecc71;
             padding-left: 10px;
+        }
+        .map-container {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 20px;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -159,7 +168,7 @@ def main():
                    unsafe_allow_html=True)
     
     # Main tabs
-    tab1, tab2, tab3, tab4 = st.tabs(["Overview", "Channel Analysis", "Regional View", "Issue Management"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview", "Channel Analysis", "Regional View", "Regional Map", "Issue Management"])
     
     with tab1:
         st.subheader("Sentiment Overview")
@@ -199,7 +208,7 @@ def main():
                          title='Average Resolution Time (minutes)',
                          labels={'resolution_time':'Minutes'})
             st.plotly_chart(fig4, use_container_width=True)
-    
+
     with tab3:
         st.subheader("Regional Analysis")
         
@@ -218,6 +227,46 @@ def main():
         st.plotly_chart(fig6, use_container_width=True)
     
     with tab4:
+        st.subheader("UK Regional Analysis")
+        
+        if not filtered_df.empty:
+            st.markdown("""
+            <div style="background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 20px;">
+                <p style="margin: 0;">🔴 <strong>Red areas</strong> show negative sentiment hotspots</p>
+                <p style="margin: 0;">🟢 <strong>Green markers</strong> indicate positive feedback locations</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # UK Map
+            uk_map = create_uk_sentiment_map(filtered_df)
+            folium_static(uk_map, width=800, height=600)
+            
+            # Regional statistics
+            st.subheader("Regional Sentiment Metrics")
+            regional_stats = filtered_df.groupby('region').agg({
+                'sentiment': lambda x: (x == 'POSITIVE').mean(),
+                'score': 'mean',
+                'is_negative': 'sum'
+            }).sort_values('is_negative', ascending=False)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                fig = px.bar(regional_stats, 
+                            x=regional_stats.index, 
+                            y='sentiment',
+                            title='Positive Sentiment by Region')
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                fig = px.bar(regional_stats, 
+                            x=regional_stats.index, 
+                            y='is_negative',
+                            title='Critical Issues by Region')
+                st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("No data available with current filters")
+    
+    with tab5:
         st.subheader("Issue Management Dashboard")
         
         # Critical issues table
