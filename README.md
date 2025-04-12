@@ -37,7 +37,7 @@ pip install pandas numpy streamlit plotly folium streamlit-folium transformers t
 
 2. Run the complete install command:
    ```bash
-   pip install pandas numpy streamlit plotly folium streamlit-folium transformers torch python-dotenv faker
+   pip install pandas numpy streamlit plotly folium streamlit-folium transformers torch python-dotenv faker fpdf langchain_community langchain scikit-learn
    ```
 
 3. Verify installations:
