@@ -1,1 +1,6 @@
 pip install transformers torch streamlit plotly pandas numpy python-dotenv gradio huggingface_hub
+
+TKNS
+
+chain319aa25c8a8cc87b20e1cc918fb9ed29f23395edd6027f27b9608b194dfba387
+KPhf_hQBYKfMUuThmYoZjTPckzLAzdIURtnnHop
