@@ -1,0 +1,44 @@
+Sure! Here’s the content of each slide from the clean version of the presentation:
+
+---
+
+### 🎯 **Slide 1: The Voice of the Customer is Getting Lost in the Noise**
+
+- Customer sentiment is fragmented — insights are buried in disparate systems and reviewed too late.  
+- By the time we act, the damage to trust and NPS is already done.  
+- No single view of customer emotion across journeys, channels, and regions.  
+- Product teams are reactive, not insight-driven when fixing experience issues.  
+- **“We monitor transactions in real-time — why not monitor emotions in real-time too?”**
+
+---
+
+### 🚀 **Slide 2: Real-Time Sentiment Intelligence — Built for Lloyds at Scale**
+
+- Live ingestion from app reviews, social posts, support logs, and call transcripts.  
+- AI-driven sentiment engine filters noise and flags what's truly negative.  
+- Location-aware heatmaps surface regional patterns and pain points.  
+- Automated alerts and escalations to product and operations teams — as it happens.  
+- Trend analysis over time to prevent repeat issues.  
+- Faster issue detection = Higher CSAT  
+- Empowers teams to act, not just observe  
+- Proves Lloyds is listening — in real time
+
+---
+
+### 💼 **Slide 3: Unlocking Customer-Centric Growth at Scale**
+
+- Boost NPS by acting in real time — not postmortem.  
+- Empower delivery teams with actionable insights.  
+- Reduce call volumes and complaints by resolving trending issues at source.  
+- Customizable for product teams to track performance and feedback daily.  
+
+**Next Steps:**  
+- Plug into real data streams via DCE APIs  
+- Fine-tune model with Lloyds-specific tone & context  
+- Pilot within selected LBG business units  
+
+**“Let’s shift from reactive to proactive — and lead in experience excellence.”**
+
+---
+
+Let me know if you'd like to make this more domain-specific, shorten for executive review, or add data points!
