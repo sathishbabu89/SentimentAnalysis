@@ -9,10 +9,19 @@ from uk_map import create_uk_sentiment_map
 from streamlit_folium import folium_static
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.ensemble import IsolationForest
+from langchain.llms import HuggingFaceEndpoint
 import numpy as np
+from fpdf import FPDF
+import os
+import base64
 
 # Initialize simulator
 simulator = DataSimulator()
+
+HUGGINGFACE_API_TOKEN = "TOKEN"
+if not HUGGINGFACE_API_TOKEN:
+    st.error("Please set HUGGINGFACE_API_TOKEN in secrets or environment variables")
+    st.stop()
 
 @st.cache_data
 def load_data():
@@ -36,7 +45,7 @@ def check_for_alerts(df):
     if product_stats.max() > 0.25:
         alerts.append({
             "type": "product",
-            "message": f"Product issue detected with {product_stats.idxmax()} ({(product_stats.max()*100):.1f}%)",
+            "message": f"Pension product issue detected with {product_stats.idxmax()} ({(product_stats.max()*100):.1f}%)",
             "severity": "medium"
         })
     
@@ -62,9 +71,48 @@ def detect_anomalies(df):
     df['is_anomaly'] = anomalies == -1
     return df[df['is_anomaly']].sort_values('score', ascending=False)
 
+def generate_summary_pdf(text, filename="executive_summary.pdf"):
+    # Create temp directory if it doesn't exist
+    os.makedirs("C:\\temp", exist_ok=True)
+    
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    pdf.multi_cell(0, 10, text)
+    
+    output_path = os.path.join("C:\\temp", filename)
+    pdf.output(output_path)
+    
+    return output_path
+    
+def generate_executive_summary(df):
+    """Generate insights summary using HuggingFace LLM"""
+    sentiment_dist = df['sentiment'].value_counts(normalize=True).to_dict()
+    top_issues = df[df['is_negative']].groupby('product')['feedback_text'].count().nlargest(3)
+    
+    llm = HuggingFaceEndpoint(
+        repo_id="mistralai/Mistral-7B-Instruct-v0.3",
+        task="text-generation",
+        max_new_tokens=512,
+        top_k=10,
+        top_p=0.95,
+        temperature=0.3,
+        huggingfacehub_api_token=HUGGINGFACE_API_TOKEN
+    )
+    
+    prompt = f"""
+    [INST] As a banking CX analyst, create a concise executive summary with:
+    1. Key sentiment metrics (Positive: {sentiment_dist.get('POSITIVE', 0):.1%}, Negative: {sentiment_dist.get('NEGATIVE', 0):.1%})
+    2. Top 3 pension product issues: {', '.join(top_issues.index.tolist())}
+    3. Three actionable recommendations for pension product improvement
+    
+    Use bullet points and professional banking language. [/INST]
+    """
+    return llm.invoke(prompt)
+
 def main():
     st.set_page_config(
-        page_title="Lloyds Sentiment Dashboard",
+        page_title="Lloyds Pension Sentiment Dashboard",
         layout="wide",
         page_icon="🏦"
     )
@@ -96,10 +144,10 @@ def main():
     </style>
     """, unsafe_allow_html=True)
     
-    st.title("🏦 Lloyds Banking Group - Customer Sentiment Dashboard")
+    st.title("🏦 Lloyds Banking Group - Pension Products Sentiment Dashboard")
     st.markdown("""
     <div style="color: #7f8c8d; font-size: 0.9em; margin-bottom: 20px;">
-    Real-time monitoring of customer sentiment across digital channels
+    Real-time monitoring of customer sentiment across pension products
     </div>
     """, unsafe_allow_html=True)
     
@@ -119,9 +167,9 @@ def main():
         default=df['region'].unique()
     )
     selected_products = st.sidebar.multiselect(
-        "Select Products",
-        df['product'].unique(),
-        default=df['product'].unique()
+        "Select Pension Products",
+        df['product'].unique(),  # This will now show GPP, GSP, GSIPP, SWMT
+        default=df['product'].unique()  # Select all by default
     )
     
     # Time filter
@@ -146,6 +194,10 @@ def main():
             (filtered_df['timestamp'].dt.date >= date_range[0]) &
             (filtered_df['timestamp'].dt.date <= date_range[1])
         ]
+    elif len(date_range) == 1:
+        filtered_df = filtered_df[
+            (filtered_df['timestamp'].dt.date == date_range[0])
+        ]
     
     # Check for alerts
     alerts = check_for_alerts(filtered_df)
@@ -166,14 +218,22 @@ def main():
                    unsafe_allow_html=True)
     
     with col2:
-        positive_pct = len(filtered_df[filtered_df['sentiment']=='POSITIVE'])/len(filtered_df)
-        st.markdown(f'<div class="metric-card">Positive Sentiment<br><h2>{positive_pct:.0%}</h2></div>', 
-                   unsafe_allow_html=True)
-    
+        if len(filtered_df) > 0:
+            positive_pct = len(filtered_df[filtered_df['sentiment']=='POSITIVE'])/len(filtered_df)
+            st.markdown(f'<div class="metric-card">Positive Sentiment<br><h2>{positive_pct:.0%}</h2></div>', 
+                    unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="metric-card">Positive Sentiment<br><h2>N/A</h2></div>', 
+                    unsafe_allow_html=True)
+
     with col3:
-        negative_pct = len(filtered_df[filtered_df['sentiment']=='NEGATIVE'])/len(filtered_df)
-        st.markdown(f'<div class="metric-card">Negative Sentiment<br><h2>{negative_pct:.0%}</h2></div>', 
-                   unsafe_allow_html=True)
+        if len(filtered_df) > 0:
+            negative_pct = len(filtered_df[filtered_df['sentiment']=='NEGATIVE'])/len(filtered_df)
+            st.markdown(f'<div class="metric-card">Negative Sentiment<br><h2>{negative_pct:.0%}</h2></div>', 
+                    unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="metric-card">Negative Sentiment<br><h2>N/A</h2></div>', 
+                    unsafe_allow_html=True)
     
     with col4:
         critical_count = len(filtered_df[filtered_df['is_negative']])
@@ -181,34 +241,41 @@ def main():
                    unsafe_allow_html=True)
     
     # Main tabs
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Overview", "Channel Analysis", "Regional View", "Regional Map", "Issue Management", "Anomalies"])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+        "Overview", "Channel Analysis", "Regional View", 
+        "Regional Map", "Issue Management", "Anomalies", 
+        "Executive Summary"
+    ])
     
     with tab1:
-        st.subheader("Sentiment Overview")
+        st.subheader("Pension Products Sentiment Overview")
         
-        # Sentiment distribution
-        fig1 = px.pie(filtered_df, names='sentiment', 
-                      title='Overall Sentiment Distribution',
-                      color='sentiment',
-                      color_discrete_map={'POSITIVE':'#2ecc71','NEGATIVE':'#e74c3c','NEUTRAL':'#3498db'})
-        st.plotly_chart(fig1, use_container_width=True)
-        
-        # Sentiment trend
-        st.subheader("Sentiment Trend Over Time")
-        daily_sentiment = filtered_df.set_index('timestamp').groupby([pd.Grouper(freq='D'), 'sentiment']).size().unstack()
-        fig2 = px.line(daily_sentiment, 
-                      title='Daily Sentiment Trend',
-                      labels={'value':'Count', 'timestamp':'Date'},
-                      color_discrete_map={'POSITIVE':'#2ecc71','NEGATIVE':'#e74c3c','NEUTRAL':'#3498db'})
-        st.plotly_chart(fig2, use_container_width=True)
+        if not filtered_df.empty:
+            # Sentiment distribution
+            fig1 = px.pie(filtered_df, names='sentiment', 
+                        title='Overall Sentiment Distribution for Pension Products',
+                        color='sentiment',
+                        color_discrete_map={'POSITIVE':'#2ecc71','NEGATIVE':'#e74c3c','NEUTRAL':'#3498db'})
+            st.plotly_chart(fig1, use_container_width=True)
+            
+            # Sentiment trend
+            st.subheader("Pension Products Sentiment Trend Over Time")
+            daily_sentiment = filtered_df.set_index('timestamp').groupby([pd.Grouper(freq='D'), 'sentiment']).size().unstack()
+            fig2 = px.line(daily_sentiment, 
+                        title='Daily Pension Products Sentiment Trend',
+                        labels={'value':'Count', 'timestamp':'Date'},
+                        color_discrete_map={'POSITIVE':'#2ecc71','NEGATIVE':'#e74c3c','NEUTRAL':'#3498db'})
+            st.plotly_chart(fig2, use_container_width=True)
+        else:
+            st.warning("No data matches your filter criteria. Please adjust your filters.")
     
     with tab2:
-        st.subheader("Channel Performance")
+        st.subheader("Channel Performance for Pension Products")
         
         # Channel sentiment distribution
         fig3 = px.bar(filtered_df.groupby('channel')['sentiment'].value_counts(normalize=True).reset_index(name='percentage'), 
                      x='channel', y='percentage', color='sentiment',
-                     title='Sentiment Distribution by Channel',
+                     title='Pension Products Sentiment Distribution by Channel',
                      barmode='group',
                      color_discrete_map={'POSITIVE':'#2ecc71','NEGATIVE':'#e74c3c','NEUTRAL':'#3498db'})
         st.plotly_chart(fig3, use_container_width=True)
@@ -218,34 +285,34 @@ def main():
             st.subheader("Average Resolution Time by Channel")
             resolution_times = filtered_df[filtered_df['resolution_time'].notna()].groupby('channel')['resolution_time'].mean().reset_index()
             fig4 = px.bar(resolution_times, x='channel', y='resolution_time',
-                         title='Average Resolution Time (minutes)',
+                         title='Average Resolution Time for Pension Products (minutes)',
                          labels={'resolution_time':'Minutes'})
             st.plotly_chart(fig4, use_container_width=True)
 
     with tab3:
-        st.subheader("Regional Analysis")
+        st.subheader("Regional Analysis of Pension Products")
         
         # Regional sentiment heatmap
         fig5 = px.density_heatmap(filtered_df, x='region', y='product', 
                                  z='score', histfunc='avg',
-                                 title='Average Sentiment Score by Region and Product',
+                                 title='Average Sentiment Score by Region and Pension Product',
                                  color_continuous_scale='RdYlGn')
         st.plotly_chart(fig5, use_container_width=True)
         
         # Regional comparison
-        st.subheader("Regional Comparison")
+        st.subheader("Regional Comparison of Pension Products")
         fig6 = px.box(filtered_df, x='region', y='score', color='sentiment',
-                     title='Sentiment Score Distribution by Region',
+                     title='Pension Products Sentiment Score Distribution by Region',
                      color_discrete_map={'POSITIVE':'#2ecc71','NEGATIVE':'#e74c3c','NEUTRAL':'#3498db'})
         st.plotly_chart(fig6, use_container_width=True)
     
     with tab4:
-        st.subheader("UK Regional Analysis")
+        st.subheader("UK Regional Analysis of Pension Products")
         
         if not filtered_df.empty:
             st.markdown("""
             <div style="background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 20px;">
-                <p style="margin: 0;">🔴 <strong>Red areas</strong> show negative sentiment hotspots</p>
+                <p style="margin: 0;">🔴 <strong>Red areas</strong> show negative sentiment hotspots for pension products</p>
                 <p style="margin: 0;">🟢 <strong>Green markers</strong> indicate positive feedback locations</p>
             </div>
             """, unsafe_allow_html=True)
@@ -255,7 +322,7 @@ def main():
             folium_static(uk_map, width=800, height=600)
             
             # Regional statistics
-            st.subheader("Regional Sentiment Metrics")
+            st.subheader("Regional Sentiment Metrics for Pension Products")
             regional_stats = filtered_df.groupby('region').agg({
                 'sentiment': lambda x: (x == 'POSITIVE').mean(),
                 'score': 'mean',
@@ -267,26 +334,26 @@ def main():
                 fig = px.bar(regional_stats, 
                             x=regional_stats.index, 
                             y='sentiment',
-                            title='Positive Sentiment by Region')
+                            title='Positive Sentiment by Region (Pension Products)')
                 st.plotly_chart(fig, use_container_width=True)
             
             with col2:
                 fig = px.bar(regional_stats, 
                             x=regional_stats.index, 
                             y='is_negative',
-                            title='Critical Issues by Region')
+                            title='Critical Pension Product Issues by Region')
                 st.plotly_chart(fig, use_container_width=True)
         else:
             st.warning("No data available with current filters")
     
     with tab5:
-        st.subheader("Issue Management Dashboard")
+        st.subheader("Pension Product Issue Management")
         
         # Critical issues table
         critical_issues = filtered_df[filtered_df['is_negative']].sort_values('score', ascending=False)
         
         if not critical_issues.empty:
-            st.markdown(f"**{len(critical_issues)} Critical Issues Identified**")
+            st.markdown(f"**{len(critical_issues)} Critical Pension Product Issues Identified**")
             
             for _, row in critical_issues.head(10).iterrows():
                 container = st.container(border=True)
@@ -294,7 +361,7 @@ def main():
                     cols = st.columns([3,1,1,1])
                     cols[0].markdown(f"**{row['channel']}** - {row['region']}")
                     cols[1].metric("Score", f"{row['score']:.2f}")
-                    cols[2].metric("Product", row['product'])
+                    cols[2].metric("Pension Product", row['product'])
                     
                     if pd.notna(row['resolution_status']):
                         cols[3].success(f"Status: {row['resolution_status']}")
@@ -320,20 +387,20 @@ def main():
                             st.success(f"Action '{action}' taken for issue ID: {row['customer_id']}")
                             st.session_state[f"action_{row['customer_id']}"] = False
         else:
-            st.success("No critical issues identified in the selected filters")
+            st.success("No critical pension product issues identified in the selected filters")
 
     with tab6:
-        st.subheader("🚨 Anomaly Detection Engine")
+        st.subheader("🚨 Pension Product Anomaly Detection")
         st.markdown("""
         <div style="background-color: #fff3cd; padding: 10px; border-radius: 5px; margin-bottom: 20px;">
-            <b>AI-powered detection</b> of unusual feedback patterns that may indicate emerging issues
+            <b>AI-powered detection</b> of unusual feedback patterns that may indicate emerging pension product issues
         </div>
         """, unsafe_allow_html=True)
         
         anomaly_df = detect_anomalies(filtered_df)
         
         if not anomaly_df.empty:
-            st.metric("Unusual Feedback Detected", len(anomaly_df), delta=f"{len(anomaly_df)/len(filtered_df):.1%} of total")
+            st.metric("Unusual Pension Feedback Detected", len(anomaly_df), delta=f"{len(anomaly_df)/len(filtered_df):.1%} of total")
             
             fig_anom = px.scatter(
                 anomaly_df,
@@ -341,18 +408,55 @@ def main():
                 y='score',
                 color='sentiment',
                 hover_data=['feedback_text'],
-                title="Anomaly Timeline",
+                title="Pension Product Anomaly Timeline",
                 color_discrete_map={'POSITIVE':'#2ecc71','NEGATIVE':'#e74c3c'}
             )
             st.plotly_chart(fig_anom, use_container_width=True)
             
-            st.subheader("Most Unusual Feedback")
+            st.subheader("Most Unusual Pension Product Feedback")
             for _, row in anomaly_df.head(5).iterrows():
                 with st.expander(f"{row['channel']} - {row['region']} (Score: {row['score']:.2f})"):
                     st.write(row['feedback_text'])
-                    st.caption(f"Product: {row['product']} | {row['timestamp']}")
+                    st.caption(f"Pension Product: {row['product']} | {row['timestamp']}")
         else:
-            st.success("No anomalies detected in current dataset")
+            st.success("No anomalies detected in current pension product dataset")
 
-if __name__ == "__main__":
+    with tab7:
+        st.subheader("📊 Pension Products Executive Summary")
+        st.markdown("""
+        <div style="background-color: #e7f5fe; padding: 10px; border-radius: 5px; margin-bottom: 20px;">
+            <b>AI-generated insights</b> powered by Mistral-7B-v0.3 Large Language Model
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("Generate Summary Report", type="primary"):
+            with st.spinner("Analyzing pension product trends with Mistral-7B..."):
+                try:
+                    summary = generate_executive_summary(filtered_df)
+                    
+                    st.markdown(f"""
+                    <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px; margin-top: 20px;">
+                        <h4 style="color: #1a5276;">Lloyds Pension Products Sentiment Brief</h4>
+                        {summary.replace("\n", "<br>")}
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    pdf_path = generate_summary_pdf(summary)
+                    with open(pdf_path, "rb") as f:
+                        pdf_data = f.read()
+                    
+                    st.download_button(
+                        label="📄 Download Summary as PDF",
+                        data=pdf_data,
+                        file_name="lloyds_pension_sentiment_summary.pdf",
+                        mime="application/pdf"
+                    )
+                except Exception as e:
+                    st.error(f"Failed to generate summary: {str(e)}")
+                    st.info("Please check your Hugging Face API token and internet connection")
+        else:
+            st.info("Click the button above to generate an executive summary for pension products")
+
+
+if __name__ == "__main__":  
     main()
