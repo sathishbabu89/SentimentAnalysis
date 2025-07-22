@@ -35,14 +35,19 @@ class DataSimulator:
         }
         
         # Banking products
+        #self.products = [
+        #   "Mortgage", 
+        #    "Credit Card", 
+        #    "Savings Account",
+        #    "Personal Loan",
+        #    "Business Banking",
+        #    "Investment Account"
+        #]
         self.products = [
-            "Current Account", 
-            "Mortgage", 
-            "Credit Card", 
-            "Savings Account",
-            "Personal Loan",
-            "Business Banking",
-            "Investment Account"
+            "GPP", 
+            "GSP", 
+            "GSIPP", 
+            "SWMT"
         ]
         
         # Customer service staff
@@ -103,49 +108,49 @@ class DataSimulator:
         return df
 
     def _generate_feedback_text(self):
-        """Generate realistic banking customer feedback text."""
+        """Generate realistic pension product customer feedback text."""
         positive = [
-            "Great service from Lloyds today! The mobile app works perfectly.",
-            "Very helpful customer service representative solved my issue quickly.",
-            "The new online banking features are fantastic and easy to use.",
-            "I'm very satisfied with my mortgage advisor's guidance.",
-            "Quick response to my query via the chat feature. Excellent!",
-            "The branch staff were extremely helpful with my account setup.",
-            "Interest rates on my savings account are very competitive."
+            "Very happy with my GPP pension transfer process",
+            "The GSIPP online portal is excellent for managing my investments",
+            "Great advice from my pension advisor about my SWMT options",
+            "GSP performance has exceeded my expectations this year",
+            "The pension calculator helped me understand my GPP projections",
+            "Clear communication about my GSIPP fees and charges",
+            "Easy to make additional contributions to my SWMT online"
         ]
         
         negative = [
-            "Extremely frustrated with the mortgage application process!",
-            "App keeps crashing when I try to make payments. Unacceptable!",
-            "Waited 45 minutes to speak to someone. Service is deteriorating.",
-            "Incorrect charges on my account and no one can explain why.",
-            "Website keeps logging me out mid-transaction. Very frustrating!",
-            "My card was blocked without warning causing huge inconvenience.",
-            "Mortgage advisor gave me incorrect information about rates."
+            "Extremely disappointed with GPP customer service response times",
+            "My GSP transfer took weeks to complete - unacceptable!",
+            "GSIPP portal keeps crashing when I try to view statements",
+            "SWMT performance has been terrible this quarter",
+            "No one could explain the charges on my GPP statement",
+            "GSP annual statement contained multiple errors",
+            "GSIPP withdrawal process is far too complicated"
         ]
         
         neutral = [
-            "Opened a new savings account. Process was straightforward.",
-            "Received my new debit card in the mail as expected.",
-            "The interest rates seem competitive compared to other banks.",
-            "Had to visit branch to complete the application as online didn't work.",
-            "Standard service, nothing exceptional but no complaints either.",
-            "The mobile app is okay but could use some improvements.",
-            "Average experience, neither good nor bad."
+            "Received my annual GPP statement as expected",
+            "The SWMT online portal is functional but could be improved",
+            "Standard service for my GSP query, nothing exceptional",
+            "GSIPP performance is average compared to other providers",
+            "Had to call twice to get my pension question answered",
+            "The pension calculator gives reasonable estimates",
+            "Annual review meeting was satisfactory but not outstanding"
         ]
         
         return random.choice(positive + negative + neutral)
     
     def _generate_resolution_notes(self):
-        """Generate realistic resolution notes for negative feedback."""
+        """Generate realistic resolution notes for pension product feedback."""
         resolutions = [
-            "Apologized to customer and offered £20 goodwill gesture",
-            "Issue escalated to technical team for investigation",
-            "Provided detailed explanation of charges and customer satisfied",
-            "Arranged callback from specialist team within 24 hours",
-            "Walked customer through app troubleshooting steps",
-            "Replaced customer's card and waived replacement fee",
-            "Offered rate review and improved customer's mortgage terms",
-            "Explained security procedures that led to card block"
+            "Explained the GPP transfer process timeline in detail",
+            "Arranged pension specialist callback to discuss GSP performance",
+            "Waived admin fee for GSIPP as goodwill gesture",
+            "Provided detailed breakdown of SWMT investment charges",
+            "Escalated GPP portal issues to technical team",
+            "Offered free pension review session to address concerns",
+            "Corrected GSP statement errors and sent revised copy",
+            "Explained tax implications of GSIPP withdrawals"
         ]
         return random.choice(resolutions)
