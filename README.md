@@ -1,7 +1,7 @@
  Here's the complete `pip install` command with all required packages for the UK sentiment analysis dashboard:
 
 ```bash
-pip install pandas numpy streamlit plotly folium streamlit-folium transformers torch python-dotenv faker
+pip install pandas numpy streamlit plotly folium streamlit-folium transformers torch python-dotenv faker fpdf langchain_community AzureOpenAI langchain scikit-learn  
 ```
 
 ### Package Breakdown:
